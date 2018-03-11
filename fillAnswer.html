@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="utf-8">
+        <meta content="IE=edge" http-equiv="X-UA-Compatible">
+        <meta content="no-cache" http-equiv="Pragma">
+        <meta content="no-store" http-equiv="Cache-Control">
+        <meta content="no-cache" http-equiv="Cache-Control">
+        <meta content="Mon, 26 Jul 1997 05:00:00 GMT" http-equiv="Expires">
+        <meta content="width=device-width, initial-scale=1, minimum-scale = 1.0, maximum-scale = 1.0, user-scalable = no" name="viewport">
+
+        <title>Fill Answer</title>
+
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+        <script src="https://code.jquery.com/jquery-2.2.0.min.js" type="text/javascript"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" type="text/javascript"></script>
+
+        <style type="text/css">
+        </style>
+
+        <script type="text/javascript">
+
+            /**
+             * マップクラス。
+             * @param {Array} data データオブジェクト
+             */
+            var Map = function (data) {
+
+                // コンストラクタ
+                this.data = data;
+                this.initPos = {"x": -1, "y": -1};
+                this.W = 0;
+                this.S = 1;
+
+            };
+            (function () {
+
+                /**
+                 * マップデータを配列で取得する。
+                 * マップデータは2次元配列で、x=0, y=0 にアクセスする場合は、data[y][x] とする。
+                 * @returns {Array} マップデータ
+                 */
+                Map.prototype.getData = function () {
+
+                    return this.data;
+                };
+
+                /**
+                 * マップデータを設定する。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 * @param {Number} val 値
+                 */
+                Map.prototype.setValue = function (x, y, val) {
+
+                    if (0 <= y && y <= this.data.length - 1 && 0 <= x && x <= this.data[y].length - 1) {
+                        this.data[y][x] = val;
+                    }
+                };
+
+                /**
+                 * マップデータを取得する。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 * @return {Number] マップデータ
+                 */
+                Map.prototype.getValue = function (x, y) {
+
+                    if (0 <= y && y <= this.data.length - 1 && 0 <= x && x <= this.data[y].length - 1) {
+                        return this.data[y][x];
+                    }
+
+                    return this.W;
+                };
+
+                /**
+                 * マップデータに初期位置を設定する。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 */
+                Map.prototype.setInitPos = function (x, y) {
+
+                    this.initPos["x"] = x;
+                    this.initPos["y"] = y;
+                };
+
+                /**
+                 * マップデータから初期位置を取得する。
+                 * 初期位置は Object 型で返却され、以下のようにアクセスする。
+                 * var initPos = map.getInitPos();
+                 * initPos.x;
+                 * initPos.y;
+                 * @return {Object} 初期位置
+                 */
+                Map.prototype.getInitPos = function () {
+
+                    return this.initPos;
+                };
+
+                /**
+                 * マップデータ中の空間になっている部分を位置情報リストとして取得する。
+                 * 空間位置情報リストの要素は、Posクラス。
+                 * @return {Array} 空間位置情報リスト
+                 */
+                Map.prototype.getSpaces = function () {
+
+                    var r = [];
+                    for (var y = 0; y < this.data.length; y++) {
+                        for (var x = 0; x < this.data[y].length; x++) {
+                            if (this.data[y][x] === this.S) {
+                                r.push(new Pos(x, y));
+                            }
+                        }
+                    }
+
+                    return r;
+                };
+
+            }());
+
+            /**
+             * スタック構造を表現したクラス。
+             */
+            var Stack = function () {
+
+                // コンストラクタ
+                this.data = [];
+            };
+            (function () {
+
+                /**
+                 * スタックに要素を追加する。
+                 * @param {type} val 要素
+                 */
+                Stack.prototype.push = function (val) {
+                    this.data.push(val);
+                };
+
+                /**
+                 * スタックから要素を取得する。
+                 * @return {type} 要素
+                 */
+                Stack.prototype.pop = function () {
+                    if (this.data.length > 0) {
+                        return this.data.pop();
+                    }
+                    return null;
+                };
+
+                /**
+                 * スタックから内部配列データを取得する。
+                 * @return {type} 内部配列データ
+                 */
+                Stack.prototype.get = function () {
+                    return this.data;
+                };
+
+                /**
+                 * スタックのサイズを取得する。
+                 * @return {Number} スタックのサイズ
+                 */
+                Stack.prototype.size = function () {
+                    return this.data.length;
+                };
+
+            }());
+
+            /**
+             * 移動の痕跡を表現したクラス。
+             * 本クラスのオブジェクトはそれ自体が一つの移動を表す。
+             */
+            var Moved = function (x, y) {
+
+                // コンストラクタ
+                this.pos = new Pos(x, y);
+                this.u = false;
+                this.d = false;
+                this.l = false;
+                this.r = false;
+
+                this.from = null;
+                this.to = null;
+            };
+            (function () {
+
+                /**
+                 * 位置を取得する。
+                 * @return Pos 位置
+                 */
+                Moved.prototype.getPos = function () {
+                    return this.pos;
+                };
+
+                /**
+                 * 上方向の移動有無を設定する。
+                 * @param {Boolean} val 値
+                 */
+                Moved.prototype.setUp = function (val) {
+                    this.u = val;
+                };
+
+                /**
+                 * 下方向の移動有無を設定する。
+                 * @param {Boolean} val 値
+                 */
+                Moved.prototype.setDown = function (val) {
+                    this.d = val;
+                };
+
+                /**
+                 * 左方向の移動有無を設定する。
+                 * @param {Boolean} val 値
+                 */
+                Moved.prototype.setLeft = function (val) {
+                    this.l = val;
+                };
+
+                /**
+                 * 右方向の移動有無を設定する。
+                 * @param {Boolean} val 値
+                 */
+                Moved.prototype.setRight = function (val) {
+                    this.r = val;
+                };
+
+                /**
+                 * 上方向の移動有無を取得する。
+                 * @return {Boolean} 移動有無
+                 */
+                Moved.prototype.isUp = function () {
+                    return this.u;
+                };
+
+                /**
+                 * 下方向の移動有無を取得する。
+                 * @return {Boolean} 移動有無
+                 */
+                Moved.prototype.isDown = function () {
+                    return this.d;
+                };
+
+                /**
+                 * 左方向の移動有無を取得する。
+                 * @return {Boolean} 移動有無
+                 */
+                Moved.prototype.isLeft = function () {
+                    return this.l;
+                };
+
+                /**
+                 * 右方向の移動有無を取得する。
+                 * @return {Boolean} 移動有無
+                 */
+                Moved.prototype.isRight = function () {
+                    return this.r;
+                };
+
+                /**
+                 * 移動元を設定する。
+                 * @param {String} val 値
+                 */
+                Moved.prototype.setFrom = function (val) {
+                    this.from = val;
+                };
+
+                /**
+                 * 移動元を取得する。
+                 * @return {String} 移動元
+                 */
+                Moved.prototype.getFrom = function () {
+                    return this.from;
+                };
+
+                /**
+                 * 移動先を設定する。
+                 * @param {String} val 値
+                 */
+                Moved.prototype.setTo = function (val) {
+                    this.to = val;
+                };
+
+                /**
+                 * 移動先を取得する。
+                 * @return {String} 移動先
+                 */
+                Moved.prototype.getTo = function () {
+                    return this.to;
+                };
+            }());
+
+            /**
+             * サイズを表現したクラス。
+             * @param {Number} w 幅
+             * @param {Number} h 高さ
+             */
+            var Size = function (w, h) {
+
+                // コンストラクタ
+                this.w = w;
+                this.h = h;
+            };
+            (function () {
+
+                /**
+                 * 幅を取得する。
+                 * @return {Number} 幅
+                 */
+                Size.prototype.getW = function () {
+                    return this.w;
+                };
+
+                /**
+                 * 高さを取得する。
+                 * @return {Number} 高さ
+                 */
+                Size.prototype.getH = function () {
+                    return this.h;
+                };
+
+                /**
+                 * 幅と高さを取得する。
+                 * @return {Object} 幅と高さ
+                 */
+                Size.prototype.get = function () {
+                    return{"w": this.w, "h": this.h};
+                };
+
+                /**
+                 * 幅を設定する。
+                 * @param {Number} w 幅
+                 */
+                Size.prototype.setW = function (w) {
+                    return this.w = w;
+                };
+
+                /**
+                 * 高さを設定する。
+                 * @param {Number} h 高さ
+                 */
+                Size.prototype.setH = function (h) {
+                    return this.h = h;
+                };
+
+                /**
+                 * 幅と高さを設定する。
+                 * @param {Number} w 幅
+                 * @param {Number} h 高さ
+                 */
+                Size.prototype.set = function (w, h) {
+                    this.w = w;
+                    this.h = h;
+                };
+
+            }());
+
+            /**
+             * 位置を表現したクラス。
+             * @param {Number} x X座標
+             * @param {Number} y Y座標
+             */
+            var Pos = function (x, y) {
+
+                // コンストラクタ
+                this.x = x;
+                this.y = y;
+            };
+            (function () {
+
+                /**
+                 * X座標を取得する。
+                 * @return {Number} X座標
+                 */
+                Pos.prototype.getX = function () {
+                    return this.x;
+                };
+
+                /**
+                 * Y座標を取得する。
+                 * @return {Number} YX座標
+                 */
+                Pos.prototype.getY = function () {
+                    return this.y;
+                };
+
+                /**
+                 * X座標とY座標を取得する。
+                 * @return {Object} X座標とYX座標
+                 */
+                Pos.prototype.get = function () {
+                    return{"x": this.x, "y": this.y};
+                };
+
+                /**
+                 * X座標を設定する。
+                 * @param {Number} x X座標
+                 */
+                Pos.prototype.setX = function (x) {
+                    return this.x = x;
+                };
+
+                /**
+                 * YX座標を設定する。
+                 * @param {Number} y Y座標
+                 */
+                Pos.prototype.setY = function (y) {
+                    return this.y = y;
+                };
+
+                /**
+                 * X座標とY座標を設定する。
+                 * @param {Number} x X座標
+                 * @param {Number} y YX座標
+                 */
+                Pos.prototype.set = function (x, y) {
+                    this.x = x;
+                    this.y = y;
+                };
+
+            }());
+
+
+            /**
+             * ルート検索クラス。
+             */
+            var RouteSearch = function (data) {
+
+                this.data = data;
+
+                this.map = this.data["map"];
+                this.spaces = this.map.getSpaces();
+
+                var initPos = this.map.getInitPos();
+                var initMoved = new Moved(initPos.x, initPos.y);
+
+                this.routes = new Stack();
+                this.routes.push(initMoved);
+
+                this.isFast = false;
+
+                this.isSuccess = false;
+                this.isExit = false;
+
+                this.count = 0;
+
+            };
+            (function () {
+
+                RouteSearch.prototype.fast = function () {
+                    this.isFast = true;
+                };
+
+                RouteSearch.prototype.completeMoved = function (spaces, routes) {
+
+                    for (var i = 0; i < spaces.length; i++) {
+                        var space = spaces[i];
+                        var routesData = routes.get();
+                        var isMatch = false;
+                        for (var j = 0; j < routesData.length; j++) {
+                            var routesDataPos = routesData[j].getPos();
+
+                            if (routesDataPos.x === space.x &&
+                                    routesDataPos.y === space.y) {
+                                isMatch = true;
+                                break;
+                            }
+                        }
+                        if (!isMatch) {
+                            return false;
+                        }
+                    }
+
+                    return true;
+                };
+
+                RouteSearch.prototype.checkAlreadyMoved = function (routes, x, y) {
+
+                    var routesData = routes.get();
+                    for (var j = 0; j < routesData.length; j++) {
+                        if (routesData[j].getPos().x === x &&
+                                routesData[j].getPos().y === y) {
+                            return true;
+                        }
+                    }
+
+                    return false;
+                };
+
+                RouteSearch.prototype.search = function () {
+
+                    var max = 1;
+                    if (this.isFast) {
+                        // 高速モードの場合
+                        max = 10000;
+                    }
+
+                    for (var i = 0; i < max; i++) {
+
+                        var resultCode = this.searchStep(this.routes);
+                        this.count++;
+
+                        switch (resultCode) {
+                            case 1:
+                                continue;
+                            case 2:
+                                alert("探索成功 … 全てのマスを一筆書きするルートを発見しました");
+
+                                this.isSuccess = true;
+                                this.isExit = true;
+                                $("#routeFastButton").prop("disabled", true);
+                                $("#routeResetButton").prop("disabled", false);
+                                return;
+                            case 3:
+                                alert("探索失敗 … 全てのマスを一筆書きするルートを発見できず");
+
+                                this.isSuccess = false;
+                                this.isExit = true;
+                                $("#routeFastButton").prop("disabled", true);
+                                $("#routeResetButton").prop("disabled", false);
+                                return;
+                        }
+                    }
+                };
+
+                /**
+                 *
+                 * @param {type} routes
+                 * @returns {Number} 1:続行、2：終了OK、3：終了NG
+                 */
+                RouteSearch.prototype.searchStep = function (routes) {
+
+                    var nx = -1;
+                    var ny = -1;
+
+                    var moved = routes.pop();
+                    moved.setTo(null);
+                    var pos = moved.getPos();
+
+                    nx = pos.x;
+                    ny = pos.y - 1;
+                    if (!moved.isUp()) {
+                        if (this.map.getValue(nx, ny) === 1 && !this.checkAlreadyMoved(routes, nx, ny)) {
+
+                            var nextMoved = new Moved(nx, ny);
+                            nextMoved.setDown(true);
+                            nextMoved.setFrom("D");
+                            moved.setUp(true);
+                            moved.setTo("U");
+
+                            routes.push(moved);
+                            routes.push(nextMoved);
+                            if (this.completeMoved(this.spaces, routes)) {
+                                return 2;
+                            }
+                            return 1;
+                        } else {
+                            moved.setUp(true);
+                        }
+                    }
+                    nx = pos.x;
+                    ny = pos.y + 1;
+                    if (!moved.isDown()) {
+                        if (this.map.getValue(nx, ny) === 1 && !this.checkAlreadyMoved(routes, nx, ny)) {
+
+                            var nextMoved = new Moved(nx, ny);
+                            nextMoved.setUp(true);
+                            nextMoved.setFrom("U");
+                            moved.setDown(true);
+                            moved.setTo("D");
+
+                            routes.push(moved);
+                            routes.push(nextMoved);
+                            if (this.completeMoved(this.spaces, routes)) {
+                                return 2;
+                            }
+                            return 1;
+                        } else {
+                            moved.setDown(true);
+                        }
+                    }
+                    nx = pos.x - 1;
+                    ny = pos.y;
+                    if (!moved.isLeft()) {
+                        if (this.map.getValue(nx, ny) === 1 && !this.checkAlreadyMoved(routes, nx, ny)) {
+
+                            var nextMoved = new Moved(nx, ny);
+                            nextMoved.setRight(true);
+                            nextMoved.setFrom("R");
+                            moved.setLeft(true);
+                            moved.setTo("L");
+
+                            routes.push(moved);
+                            routes.push(nextMoved);
+                            if (this.completeMoved(this.spaces, routes)) {
+                                return 2;
+                            }
+                            return 1;
+                        } else {
+                            moved.setLeft(true);
+                        }
+                    }
+                    nx = pos.x + 1;
+                    ny = pos.y;
+                    if (!moved.isRight()) {
+                        if (this.map.getValue(nx, ny) === 1 && !this.checkAlreadyMoved(routes, nx, ny)) {
+
+                            var nextMoved = new Moved(nx, ny);
+                            nextMoved.setLeft(true);
+                            nextMoved.setFrom("L");
+                            moved.setRight(true);
+                            moved.setTo("R");
+
+                            routes.push(moved);
+                            routes.push(nextMoved);
+                            if (this.completeMoved(this.spaces, routes)) {
+                                return 2;
+                            }
+                            return 1;
+                        } else {
+                            moved.setRight(true);
+                        }
+                    }
+
+                    if ((moved.isUp() && moved.isDown() && moved.isLeft() && moved.isRight()) && routes.size() <= 0) {
+                        return 3;
+                    }
+
+                    return 1;
+
+                };
+
+            }());
+
+            /**
+             * シーンクラス。
+             * キャンバスへの描画処理を定義したクラス。
+             *
+             * actionメソッドを呼び出すと、_actionメソッドが呼び出される。
+             * _actionメソッドは、本クラスのサブクラスで定義される想定。
+             */
+            var Scene = function () {
+            };
+            (function () {
+
+                /**
+                 * 描画処理。
+                 */
+                Scene.prototype.action = function () {
+
+                    // サブクラスで_actionメソッドがオーバーライドされている想定
+                    return this._action();
+                };
+
+            }());
+
+            /**
+             * 初期シーンクラス。
+             */
+            var SceneInit = function () {
+
+                // 描画オブジェクトを初期化する
+                this.drawer = new Drawer({
+                    "ctx": ctx,
+                    "canvasSize": canvasSize,
+                    "padSize": padSize,
+                    "blockSize": blockSize
+                });
+            };
+            (function () {
+
+                /**
+                 * 描画内容。
+                 */
+                SceneInit.prototype._action = function () {
+
+                    this.drawer.drawClear();
+                };
+
+            }());
+            $.extend(SceneInit.prototype, Scene.prototype);
+
+            /**
+             * マップ作成シーンクラス。
+             */
+            var SceneMapMaker = function (data) {
+
+                this.data = data;
+
+                // 描画オブジェクトを初期化する
+                this.drawer = new Drawer({
+                    "ctx": ctx,
+                    "canvasSize": canvasSize,
+                    "padSize": padSize,
+                    "blockSize": blockSize
+                });
+
+                this.isMouseDown = false;
+
+                this.clearMap();
+                this.registEvents();
+
+            };
+            (function () {
+
+                /**
+                 * 描画内容。
+                 */
+                SceneMapMaker.prototype._action = function () {
+
+                    if (this.isExit) {
+                        return;
+                    }
+
+                    this.drawer.drawClear();
+
+                    var data = this.map.getData();
+
+                    for (var y = 0; y < data.length; y++) {
+                        for (var x = 0; x < data[y].length; x++) {
+                            if (data[y][x] === 1) {
+                                this.drawer.drawSpace(x, y);
+                            } else {
+                                this.drawer.drawWall(x, y);
+                            }
+                        }
+                    }
+
+                    var initPos = this.map.getInitPos();
+                    this.drawer.drawInitPos(initPos.x, initPos.y);
+
+                };
+                SceneMapMaker.prototype.getMap = function () {
+                    return this.map;
+                };
+                SceneMapMaker.prototype.clearMap = function () {
+
+                    var H_LEN = 20;
+                    var W_LEN = 20;
+
+                    var mapData = [];
+                    for (i = 0; i < H_LEN; i++) {
+                        mapData[i] = [];
+                        for (j = 0; j < W_LEN; j++) {
+                            mapData[i][j] = 0;
+                        }
+                    }
+
+                    this.map = new Map(mapData);
+                };
+
+                SceneMapMaker.prototype.registEvents = function () {
+
+                    var self = this;
+
+                    var onMouseDown = function (element, event) {
+
+                        if (!self.isMouseDown) {
+                            return;
+                        }
+
+                        var clickX = event.pageX;
+                        var clickY = event.pageY;
+
+                        // 要素の位置を取得
+                        var clientRect = element.getBoundingClientRect();
+                        var positionX = clientRect.left + window.pageXOffset;
+                        var positionY = clientRect.top + window.pageYOffset;
+
+                        // 要素内におけるクリック位置を計算
+                        var x = clickX - positionX;
+                        var y = clickY - positionY;
+                        x = Math.floor(x / blockSize.getW());
+                        y = Math.floor(y / blockSize.getH())
+
+                        switch (event.which) {
+                            case 1:
+                                self.map.setValue(x, y, 1);
+                                break;
+                            case 3:
+                                self.map.setInitPos(x, y);
+                                break;
+                        }
+                    };
+
+                    var canvasId = "#canvas";
+
+                    $(document)
+                            .off("contextmenu", canvasId)
+                            .off("mousedown", canvasId)
+                            .off("mouseup", canvasId)
+                            .off("mousemove", canvasId)
+                            ;
+                    $(document).on("contextmenu", canvasId, function (event) {
+                        return false;
+                    }).on("mousedown", canvasId, function (event) {
+                        self.isMouseDown = true;
+                        onMouseDown(this, event);
+                    }).on("mouseup", canvasId, function (event) {
+                        self.isMouseDown = false;
+                    }).on("mousemove", canvasId, function (event) {
+                        onMouseDown(this, event);
+                    });
+                };
+
+            }());
+            $.extend(SceneMapMaker.prototype, Scene.prototype);
+
+            /**
+             * ルート検索クラス。
+             */
+            var SceneRouteSearch = function (data) {
+
+                this.data = data;
+
+                this.map = this.data["map"];
+
+                // 描画オブジェクトを初期化する
+                this.drawer = new Drawer({
+                    "ctx": ctx,
+                    "canvasSize": canvasSize,
+                    "padSize": padSize,
+                    "blockSize": blockSize
+                });
+
+                this.routeSearch = new RouteSearch(this.data);
+            };
+            (function () {
+
+                /**
+                 * 描画内容。
+                 */
+                SceneRouteSearch.prototype._action = function () {
+
+                    if (this.routeSearch.isExit) {
+                        return;
+                    }
+
+                    this.drawer.drawClear();
+
+                    var data = this.map.getData();
+
+                    for (var y = 0; y < data.length; y++) {
+                        for (var x = 0; x < data[y].length; x++) {
+                            if (data[y][x] === 1) {
+                                this.drawer.drawSpace(x, y);
+                            } else {
+                                this.drawer.drawWall(x, y);
+                            }
+                        }
+                    }
+
+                    this.routeSearch.search();
+
+                    var initPos = this.map.getInitPos();
+                    this.drawer.drawInitPos(initPos.x, initPos.y);
+
+                    var routesData = this.routeSearch.routes.get();
+                    for (var i = 0; i < routesData.length; i++) {
+                        this.drawer.drawMove(routesData[i].getPos().x, routesData[i].getPos().y, routesData[i].getFrom(), routesData[i].getTo());
+                    }
+
+                    this.drawer.drawText(10, 480, "試行回数：" + this.routeSearch.count);
+
+                };
+
+                SceneRouteSearch.prototype.fast = function () {
+                    this.routeSearch.fast();
+                };
+
+            }());
+            $.extend(SceneRouteSearch.prototype, Scene.prototype);
+
+            /**
+             * 描画関連の処理を定義したクラス。
+             * @param ｛Array｝ data データオブジェクト
+             */
+            var Drawer = function (data) {
+
+                this.data = data;
+                this.ctx = data["ctx"];
+                this.canvasSize = data["canvasSize"];
+                this.padSize = data["padSize"];
+                this.blockSize = data["blockSize"];
+            };
+            (function () {
+
+                /**
+                 * クリア処理。
+                 */
+                Drawer.prototype.drawClear = function () {
+
+                    /this.ctx.fillStyle = "rgba(180, 180, 180, 1.0)";
+                    this.ctx.fillRect(0, 0, this.canvasSize.getW(), this.canvasSize.getH());
+                };
+
+                /**
+                 * 壁の描画処理。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 */
+                Drawer.prototype.drawWall = function (x, y) {
+
+                    this.ctx.fillStyle = "rgba(180, 180, 180, 1.0)";
+                    this.ctx.fillRect(this.padSize.getW() + x * this.blockSize.getW(), this.padSize.getH() + y * this.blockSize.getH(), this.blockSize.getW(), this.blockSize.getH());
+                };
+
+                /**
+                 * 空間の描画処理。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 */
+                Drawer.prototype.drawSpace = function (x, y) {
+
+                    // 内部を塗りつぶし
+                    this.ctx.fillStyle = "rgba(255, 255, 255, 1.0)";
+                    this.ctx.fillRect(this.padSize.getW() + x * this.blockSize.getW(), this.padSize.getH() + y * this.blockSize.getH(), this.blockSize.getW(), this.blockSize.getH());
+
+                    // 外枠
+                    this.ctx.strokeStyle = "rgb(200, 200, 200, 0.8)";
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(this.padSize.getW() + x * this.blockSize.getW(), this.padSize.getH() + y * this.blockSize.getH(), this.blockSize.getW(), this.blockSize.getH());
+                };
+
+                /**
+                 * 初期開始位置の描画処理。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 */
+                Drawer.prototype.drawInitPos = function (x, y) {
+
+                    // 中心に円を描画
+                    this.ctx.fillStyle = "rgba(0, 0, 255, 0.8)";
+                    this.ctx.beginPath();
+                    this.ctx.arc(
+                            this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                            this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2),
+                            5,
+                            0 * Math.PI / 180,
+                            360 * Math.PI / 180,
+                            true);
+                    this.ctx.fill();
+                };
+
+                /**
+                 * 移動の痕跡の描画処理。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 * @param {String} from 移動元
+                 * @param {String} to 移動先
+                 */
+                Drawer.prototype.drawMove = function (x, y, from, to) {
+
+                    var lineWidth = 2;
+
+                    this.ctx.strokeStyle = "rgb(0, 0, 255, 0.8)";
+                    this.ctx.lineWidth = lineWidth;
+                    this.ctx.beginPath();
+                    if (from === "U") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH()
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                    } else if (from === "D") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH())
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                    } else if (from === "L") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW(),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                    } else if (from === "R") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW()),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                    }
+                    this.ctx.stroke();
+
+                    this.ctx.beginPath();
+                    if (to === "U") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH()
+                                );
+                    } else if (to === "D") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH())
+                                );
+                    } else if (to === "L") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW(),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                    } else if (to === "R") {
+                        this.ctx.moveTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW() / 2),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                        this.ctx.lineTo(
+                                this.padSize.getW() + x * this.blockSize.getW() + (this.blockSize.getW()),
+                                this.padSize.getH() + y * this.blockSize.getH() + (this.blockSize.getH() / 2)
+                                );
+                    }
+                    this.ctx.stroke();
+                };
+
+                /**
+                 * テキストの描画処理。
+                 * @param {Number} x X座標
+                 * @param {Number} y Y座標
+                 * @param {String} text テキスト
+                 */
+                Drawer.prototype.drawText = function (x, y, text) {
+
+                    this.ctx.font = "18px 'Ｍeiryo'";
+                    this.ctx.strokeStyle = "white";
+                    this.ctx.fillText(text, x, y);
+                };
+
+            }());
+
+            var m = null;
+            var sceneCurrent = null;
+
+            var canvas = null;
+            var canvasSize = null;
+            var ctx = null;
+            var padSize = new Size(0, 0);
+            var blockSize = new Size(25, 25);
+
+            function draw(timestamp) {
+
+                if (sceneCurrent !== null) {
+
+                    // シーンを実行する
+                    var nextScene = sceneCurrent.action();
+
+                    if (typeof nextScene !== "undefined" && nextScene !== null) {
+                        // シーンの切り替えがあった場合
+                        sceneCurrent = nextScene;
+                    }
+                }
+
+                window.requestAnimationFrame(draw);
+
+            }
+
+            $(function () {
+
+                /*
+                 * キャンバスオブジェクトを初期化する
+                 */
+                canvas = $('#canvas');
+                var canvas_ = canvas.get(0);
+                if (!canvas_ || !canvas_.getContext) {
+                    return false;
+                }
+                ctx = canvas_.getContext('2d');
+
+                /*
+                 * キャンバスサイズを初期化する
+                 */
+                canvasSize = new Size(Number(canvas.attr("width")), Number(canvas.attr("height")));
+
+                /*
+                 * ボタン関連のイベント
+                 */
+                $(document).on("click", "#makeStartButton", function () {
+                    $("#makeStartButton").prop("disabled", true);
+                    $("#makeCompleteButton").prop("disabled", false);
+                    $("#makeClearButton").prop("disabled", false);
+                    $("#routeStartButton").prop("disabled", true);
+                    $("#routeFastButton").prop("disabled", true);
+                    $("#routeResetButton").prop("disabled", true);
+                    sceneCurrent = new SceneMapMaker();
+                });
+                $(document).on("click", "#makeCompleteButton", function () {
+                    $("#makeStartButton").prop("disabled", false);
+                    $("#makeCompleteButton").prop("disabled", true);
+                    $("#makeClearButton").prop("disabled", true);
+                    $("#routeStartButton").prop("disabled", false);
+                    $("#routeFastButton").prop("disabled", true);
+                    $("#routeResetButton").prop("disabled", true);
+                    m = sceneCurrent.getMap();
+                });
+                $(document).on("click", "#makeClearButton", function () {
+                    sceneCurrent.clearMap();
+                });
+                $(document).on("click", "#routeStartButton", function () {
+
+                    if (sceneCurrent === null || m === null) {
+                        return;
+                    }
+
+                    $("#makeStartButton").prop("disabled", true);
+                    $("#makeCompleteButton").prop("disabled", true);
+                    $("#makeClearButton").prop("disabled", true);
+                    $("#routeStartButton").prop("disabled", true);
+                    $("#routeFastButton").prop("disabled", false);
+                    $("#routeResetButton").prop("disabled", true);
+
+                    sceneCurrent = new SceneRouteSearch({"map": m});
+                });
+                $(document).on("click", "#routeFastButton", function () {
+                    $("#makeStartButton").prop("disabled", true);
+                    $("#makeCompleteButton").prop("disabled", true);
+                    $("#makeClearButton").prop("disabled", true);
+                    $("#routeStartButton").prop("disabled", true);
+                    $("#routeFastButton").prop("disabled", true);
+                    $("#routeResetButton").prop("disabled", true);
+
+                    sceneCurrent.fast();
+                });
+                $(document).on("click", "#routeResetButton", function () {
+                    $("#makeStartButton").prop("disabled", false);
+                    $("#makeCompleteButton").prop("disabled", true);
+                    $("#makeClearButton").prop("disabled", true);
+                    $("#routeStartButton").prop("disabled", false);
+                    $("#routeFastButton").prop("disabled", true);
+                    $("#routeResetButton").prop("disabled", true);
+
+                    sceneCurrent = new SceneInit();
+                });
+
+                sceneCurrent = new SceneInit();
+
+                window.requestAnimationFrame(draw);
+            });
+
+        </script>
+
+    </head>
+    <body>
+        <div style="padding: 15px;">
+            <div style="float:left;">
+                <canvas id="canvas" width="500" height="500"></canvas>
+            </div>
+            <div style="float:left; width: 250px; margin-left: 10px;">
+                <fieldset>
+                    <legend>マップ作成</legend>
+                    <button id="makeStartButton" class="btn btn-block btn-success" type="button">作成開始</button>
+                    <button id="makeCompleteButton" class="btn btn-block btn-success" type="button" disabled="disabled">作成完了</button>
+                    <button id="makeClearButton" class="btn btn-block btn-success" type="button" disabled="disabled">消去</button>
+                </fieldset>
+                <br />
+                <fieldset>
+                    <legend>探索</legend>
+                    <button id="routeStartButton" class="btn btn-block btn-primary" type="button">探索開始</button>
+                    <button id="routeFastButton" class="btn btn-block btn-primary" type="button" disabled="disabled">高速モード</button>
+                    <button id="routeResetButton" class="btn btn-block btn-primary" type="button" disabled="disabled">リセット</button>
+                </fieldset>
+            </div>
+            <br style="clear: both;" />
+        </div>
+    </body>
+</html>
