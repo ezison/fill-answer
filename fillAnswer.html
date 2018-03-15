@@ -17,6 +17,19 @@
         <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js" type="text/javascript"></script>
 
         <style type="text/css">
+        
+            /*
+             * 要素を選択させない
+             */
+            * {
+                -moz-user-select: none; /* Firefox */
+                -ms-user-select: none; /* Internet Explorer */
+                -khtml-user-select: none; /* KHTML browsers (e.g. Konqueror) */
+                -webkit-user-select: none; /* Chrome, Safari, and Opera */
+                -webkit-touch-callout: none; /* Disable Android and iOS callouts*/
+                user-select: none;
+            }
+        
         </style>
 
         <script type="text/javascript">
@@ -799,6 +812,11 @@
                         self.isMouseDown = false;
                     }).on("mousemove", canvasId, function (event) {
                         onMouseDown(this, event);
+                    }).on("dblclick", canvasId, function (event) {
+                        self.isMouseDown = true;
+                        event.which = 3;
+                        onMouseDown(this, event);
+                        self.isMouseDown = false;
                     });
                 };
 
@@ -916,7 +934,7 @@
                     this.ctx.fillRect(this.padSize.getW() + x * this.blockSize.getW(), this.padSize.getH() + y * this.blockSize.getH(), this.blockSize.getW(), this.blockSize.getH());
 
                     // 外枠
-                    this.ctx.strokeStyle = "rgb(200, 200, 200, 0.8)";
+                    this.ctx.strokeStyle = "rgba(200, 200, 200, 0.8)";
                     this.ctx.lineWidth = 1;
                     this.ctx.strokeRect(this.padSize.getW() + x * this.blockSize.getW(), this.padSize.getH() + y * this.blockSize.getH(), this.blockSize.getW(), this.blockSize.getH());
                 };
@@ -952,7 +970,7 @@
 
                     var lineWidth = 2;
 
-                    this.ctx.strokeStyle = "rgb(0, 0, 255, 0.8)";
+                    this.ctx.strokeStyle = "rgba(0, 0, 255, 0.8)";
                     this.ctx.lineWidth = lineWidth;
                     this.ctx.beginPath();
                     if (from === "U") {
@@ -1150,6 +1168,7 @@
                     $("#routeFastButton").prop("disabled", true);
                     $("#routeResetButton").prop("disabled", true);
 
+                    m = null;
                     sceneCurrent = new SceneInit();
                 });
 
@@ -1163,6 +1182,27 @@
     </head>
     <body>
         <div style="padding: 15px;">
+            <div>
+                <h1>FILL ANSWER</h1>
+            	<h2>特定の領域の一筆書きルートを探索する</h2>
+            </div>
+            <div>
+            	<p>マップの作成方法</p>
+                <ol>
+                    <li>作成開始ボタンを押す。</li>
+                    <li>クリックするとマス目が作られる。クリックしながらマウスを移動させるとマス目を連続して作ることができる。</li>
+                    <li>作成したマス目でダブルクリックするか右クリックすると初期位置が決まる。<strong>（探索には初期位置が必ず必要）</strong></li>
+                    <li>マップの作成をやり直す場合は、消去ボタンを押す。</li>
+                    <li>マップの作成が完了したら、作成完了ボタンを押す。</li>
+                </ol>
+            	<p>探索</p>
+                <ol>
+                    <li>マップを作成した状態で、探索開始ボタンを押す。</li>
+                    <li>探索が中々終わらない場合は、高速モードボタンを押す。。</li>
+                    <li>一筆書きルートが見つかった場合、見つからなかった場合は、その旨のメッセージが表示。</li>
+                    <li>再度マップを作成したい場合は、リセットボタンを押す。</li>
+                </ol>
+            </div>
             <div style="float:left;">
                 <canvas id="canvas" width="500" height="500"></canvas>
             </div>
